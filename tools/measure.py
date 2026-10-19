@@ -12,8 +12,7 @@ def circ(mesh,y):
     sec=mesh.section(plane_origin=[0,y,0],plane_normal=[0,1,0]); p2,_=sec.to_2D()
     polys=[q for q in p2.polygons_closed if q is not None]; return max(polys,key=lambda q:q.area).length*100
 m0=trimesh.Trimesh(world,F,process=False)
-# waist = narrowest torso circumference between 1.10 and 1.30 on the base mesh
-ys=np.arange(1.10,1.30,0.01); yw=ys[np.argmin([circ(m0,yy) for yy in ys])]
+yw=1.15   # natural waist plane used by the waist target
 print(f"waist plane y={yw:.2f}")
 print(f"{'target':10s} {'underbust@1.30':>16s} {'bust@1.35':>12s} {'waist':>8s}")
 print(f"{'base':10s} {circ(m0,1.30):16.1f} {circ(m0,1.35):12.1f} {circ(m0,yw):8.1f}")

@@ -24,12 +24,12 @@ export const CALIBRATION = {
   meshHeightCm: 180,
   baseBmi: 18.5,            // the untouched mesh is the slimmest body (fat weight never < 0)
   bmiPerFatUnit: 7,         // fat weight 1.0 ≈ +7 BMI
-  base:      { underbust: 75.1, bust: 89.7, waist: 59.4 },
+  base:      { underbust: 75.1, bust: 89.7, waist: 64.4 },
   // circumference gained (cm) at weight = 1.0 for each target
   bustT:      { underbust: 4.6,  bust: 9.1,  waist: 0 },
   underbustT: { underbust: 13.4, bust: 3.7,  waist: 0 },
-  waistT:     { underbust: 0,    bust: 0,    waist: 17.4 },
-  fatT:       { underbust: 13.6, bust: 10.3, waist: 22.7 },
+  waistT:     { underbust: 0,    bust: 0,    waist: 17.1 },
+  fatT:       { underbust: 11.7, bust: 10.8, waist: 26.3 },
   range: { bust: [-0.6, 3.0], underbust: [-0.6, 2.5], waist: [-0.6, 3.0], fat: [0, 2.5] },
 };
 

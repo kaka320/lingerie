@@ -106,43 +106,83 @@ rad = np.stack([x, np.zeros_like(y), z - 0.01], 1)
 rn = np.linalg.norm(rad, axis=1, keepdims=True); rad = rad / np.maximum(rn, 1e-6)
 D_under = rad * (w_u * 0.022)[:, None]            # 2.2 cm radial growth (~14 cm circumference)
 
-# ---------- WAIST target: inflate the waist radially ----------
-cy_w = 1.19                                       # narrowest point of the waist
-w_w = smooth(1 - np.abs(y - cy_w) / 0.11) * (np.abs(x) < 0.17)
-rad_w = np.stack([x, np.zeros_like(y), z - 0.0], 1)
-rad_w /= np.maximum(np.linalg.norm(rad_w, axis=1, keepdims=True), 1e-6)
-belly = 1.0 + 0.6 * smooth(z / 0.06)             # the front grows a little more than the back
-D_waist = rad_w * (w_w * belly * 0.022)[:, None]  # ~2.2 cm radial (~14 cm circumference)
+# ---------- limb axes (positional, independent of normals) ----------
+# Each vertex grows outward from the axis of its limb (torso, arm or leg). The
+# three fields are blended smoothly across the crotch and armpits so there are
+# no seams. Being purely positional, overlapping patches of this mesh move
+# together and the inner shell stays consistent with the outer one.
+step = 0.01
+ys = np.arange(y.min() - step, y.max() + 2 * step, step)
+sl = np.clip(np.round((y - ys[0]) / step).astype(int), 0, len(ys) - 1)
+side = np.sign(x); side[side == 0] = 1
 
-# ---------- BODY FAT target: inflate along the vertex normals, weighted by region ----------
-# Authored normals, unmodified: they are consistent within each shell of this
-# double-shell mesh. The viewer never uses a negative fat weight, so the inner
-# shell only ever moves inward and stays hidden.
-Nw = to_world_dir(unit(N))
+def axis_curve(sel):
+    """Smoothed (x, z) centroid curve of the selected vertices by height, evaluated for ALL vertices."""
+    cx = np.full(len(ys), np.nan); cz = np.full(len(ys), np.nan)
+    for i in np.unique(sl[sel]):
+        g = sel & (sl == i); cx[i] = x[g].mean(); cz[i] = z[g].mean()
+    ok = ~np.isnan(cx)
+    cx = np.interp(ys, ys[ok], cx[ok]); cz = np.interp(ys, ys[ok], cz[ok])
+    k = np.ones(9) / 9
+    cx = np.convolve(np.pad(cx, 4, mode='edge'), k, 'valid'); cz = np.convolve(np.pad(cz, 4, mode='edge'), k, 'valid')
+    return np.stack([np.interp(y, ys, cx), np.interp(y, ys, cz)], 1)
+
+def radial(axis):
+    return unit(np.stack([x - axis[:, 0], np.zeros_like(y), z - axis[:, 1]], 1))
+
+# torso / head axis
+RAD_T = radial(axis_curve((np.abs(x) < 0.17) & (y >= 0.93) | (y >= 1.42)))
+# legs and arms: one curve per side, picked by the vertex's own side
+RAD_L = np.zeros((len(P), 3)); RAD_A = np.zeros((len(P), 3))
+for sd in (-1, 1):
+    m = side == sd
+    RAD_L[m] = radial(axis_curve((y < 0.93) & (np.abs(x) < 0.17) & m))[m]
+    arm_sel = ((y < 0.93) & (np.abs(x) >= 0.17) | (y >= 0.93) & (y < 1.42) & (np.abs(x) > 0.175)) & m
+    RAD_A[m] = radial(axis_curve(arm_sel))[m]
+# inner thighs never push into the other leg
+inner = np.sign(x) * RAD_L[:, 0] < 0
+RAD_L[inner, 0] *= 0.15; RAD_L = unit(RAD_L)
+
+# blend weights
+W_L = (1 - smooth((y - 0.88) / 0.10)) * smooth((0.19 - np.abs(x)) / 0.04)
+W_A = smooth((np.abs(x) - 0.16) / 0.035) * (1 - smooth((y - 1.40) / 0.06)) * smooth((y - 0.55) / 0.05)
+W_A = np.maximum(W_A, (y < 0.93) * smooth((np.abs(x) - 0.16) / 0.035))      # hands
+W_L = W_L * (1 - W_A)
+W_T = np.clip(1 - W_L - W_A, 0, 1)
+RAD = unit(RAD_T * W_T[:, None] + RAD_L * W_L[:, None] + RAD_A * W_A[:, None])
+
 def band(lo, hi, feather=0.06):
     return smooth((y - lo) / feather + 0.5) * smooth((hi - y) / feather + 0.5)
-profile = (0.25 * band(1.55, 1.90)          # head / neck
-         + 0.55 * band(1.38, 1.55)          # shoulders / upper chest
-         + 0.65 * band(1.28, 1.38)          # bust
-         + 1.00 * band(1.04, 1.28)          # waist / belly
-         + 1.10 * band(0.84, 1.04)          # hips / buttocks
-         + 1.00 * band(0.52, 0.84)          # thighs
-         + 0.60 * band(0.18, 0.52)          # calves
-         + 0.10 * band(-0.1, 0.18))         # feet
-profile = profile * (1 + 0.8 * smooth(z / 0.06) * band(1.00, 1.30) * smooth((0.17 - np.abs(x)) / 0.04))  # belly bonus
-profile = np.where((np.abs(x) > 0.15) & (y < 0.95), 0.25, profile)                        # hands
-Nf = Nw.copy()
-legs = (y < 1.02) & (np.abs(x) < 0.16)
-Nf[legs, 0] = np.where(np.sign(x[legs]) * Nf[legs, 0] < 0, 0.0, Nf[legs, 0])   # thighs never grow inward
-D_fat = Nf * (profile * 0.025)[:, None]           # 2.5 cm at profile 1.0
-# Smooth the field over spatial neighbours that face the same way (so overlapping
-# patches move together, but the inner shell never mixes with the outer one).
-Nn = unit(N)
-Ds = np.empty_like(D_fat)
-for i, nb in enumerate(_nbrs):
-    nb = np.asarray(nb); same = nb[(Nn[nb] @ Nn[i]) > 0.6]
-    Ds[i] = D_fat[same].mean(0) if len(same) else D_fat[i]
-D_fat = Ds
+frontness = smooth(z / 0.05)                  # 1 on the front, 0 on the back
+backness = smooth(-z / 0.05)
+
+# ---------- WAIST target: widen the waist ----------
+cy_w = 1.15                                   # natural waist, just above the navel
+w_w = smooth(1 - np.abs(y - cy_w) / 0.11) * W_T
+D_waist = RAD * (w_w * (1.0 + 0.5 * frontness) * 0.022)[:, None]
+
+# ---------- BODY FAT target: realistic weight distribution ----------
+prof_torso = (0.20 * band(1.60, 1.90)         # head
+            + 0.40 * band(1.52, 1.60)         # neck
+            + 0.60 * band(1.38, 1.52)         # shoulders / upper chest
+            + 0.65 * band(1.28, 1.38)         # bust
+            + 0.90 * band(1.18, 1.28)         # ribs
+            + 1.10 * band(0.98, 1.18)         # waist / belly
+            + 1.25 * band(0.80, 0.98))        # hips / buttocks
+prof_torso = prof_torso * (1 + 0.7 * frontness * band(0.95, 1.22))   # belly pooch
+prof_torso = prof_torso * (1 + 0.4 * backness * band(0.82, 1.02))    # buttocks
+prof_arm = (0.95 * band(1.22, 1.52)           # upper arm
+          + 0.55 * band(0.98, 1.22)           # forearm
+          + 0.15 * band(0.60, 0.98))          # hands
+prof_leg = (1.15 * band(0.78, 1.00)           # upper thigh
+          + 0.95 * band(0.60, 0.78)           # thigh
+          + 0.55 * band(0.45, 0.60)           # knee
+          + 0.55 * band(0.22, 0.45)           # calf
+          + 0.20 * band(0.08, 0.22)           # ankle
+          + 0.05 * band(-0.1, 0.08))          # feet
+profile = prof_torso * W_T + prof_arm * W_A + prof_leg * W_L
+profile = smooth_field(profile[:, None])[:, 0]  # soften region borders
+D_fat = RAD * (profile * 0.028)[:, None]        # 2.8 cm at profile 1.0
 
 # ---------- normal deltas ----------
 def vertex_normals(V):
