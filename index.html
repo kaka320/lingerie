@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find your fit</title>
+<style>
+  :root { --bg:#f6f2ee; --ink:#2b2320; --accent:#b4536b; --card:#fff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: Georgia, 'Times New Roman', serif; background:var(--bg); color:var(--ink); }
+  .wrap { display:grid; grid-template-columns: 1fr 340px; min-height:100vh; }
+  #viewer { position:relative; min-height:520px; }
+  #viewer canvas { display:block; width:100% !important; height:100% !important; }
+  aside { background:var(--card); padding:32px 28px; display:flex; flex-direction:column; gap:18px; border-left:1px solid #eee; }
+  h1 { font-weight:normal; font-size:26px; margin:0; letter-spacing:.02em; }
+  p.lead { margin:0; color:#6b5e58; font-size:14px; line-height:1.5; font-family: system-ui, sans-serif; }
+  label { display:flex; flex-direction:column; gap:6px; font-family: system-ui, sans-serif; font-size:13px; color:#6b5e58; }
+  .row { display:flex; gap:10px; align-items:center; }
+  input[type=number] { width:90px; padding:8px 10px; font-size:16px; border:1px solid #ddd; border-radius:6px; }
+  input[type=range] { flex:1; accent-color:var(--accent); }
+  .result { background:var(--bg); border-radius:10px; padding:16px; font-family: system-ui, sans-serif; }
+  .result b { font-size:30px; color:var(--accent); display:block; }
+  .result small { color:#6b5e58; }
+  .hint { font-size:12px; color:#9a8d87; font-family: system-ui, sans-serif; line-height:1.5; }
+  @media (max-width: 820px) { .wrap { grid-template-columns:1fr; } #viewer { height:60vh; } aside { border-left:0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="viewer"></div>
+  <aside>
+    <h1>Find your fit</h1>
+    <p class="lead">Enter your measurements and the mannequin takes your shape. Measure snugly under the bust, and loosely around the fullest part.</p>
+
+    <label>Underbust (cm)
+      <div class="row">
+        <input id="ub" type="number" min="60" max="105" step="0.5" value="75">
+        <input id="ubr" type="range" min="60" max="105" step="0.5" value="75">
+      </div>
+    </label>
+    <label>Bust (cm)
+      <div class="row">
+        <input id="b" type="number" min="70" max="130" step="0.5" value="90">
+        <input id="br" type="range" min="70" max="130" step="0.5" value="90">
+      </div>
+    </label>
+
+    <div class="result">
+      <small>Suggested size</small>
+      <b id="size">75B</b>
+      <small id="diff"></small>
+    </div>
+    <p class="hint">Drag to rotate the mannequin. Sizes are a starting point; check each product's size chart.</p>
+  </aside>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+<script type="module">
+  import { MannequinViewer, cupSize } from './src/mannequin-viewer.js';
+  const viewer = new MannequinViewer(document.getElementById('viewer'));
+  window.viewer = viewer; // handy for debugging
+
+  const ub = document.getElementById('ub'), ubr = document.getElementById('ubr');
+  const b = document.getElementById('b'), br = document.getElementById('br');
+  const size = document.getElementById('size'), diff = document.getElementById('diff');
+
+  function apply() {
+    let u = parseFloat(ub.value), v = parseFloat(b.value);
+    if (!isFinite(u) || !isFinite(v)) return;
+    if (v < u + 4) { v = u + 4; b.value = v; }  // bust must be larger than underbust
+    ubr.value = u; br.value = v;
+    viewer.setMeasurements(u, v);
+    size.textContent = cupSize(u, v);
+    diff.textContent = `bust − underbust = ${(v - u).toFixed(1)} cm`;
+  }
+  const link = (num, range) => {
+    num.addEventListener('input', () => { range.value = num.value; apply(); });
+    range.addEventListener('input', () => { num.value = range.value; apply(); });
+  };
+  link(ub, ubr); link(b, br);
+  viewer.ready.then(apply);
+</script>
+</body>
+</html>
