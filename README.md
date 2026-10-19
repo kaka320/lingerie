@@ -1,7 +1,9 @@
 # Lingerie fit mannequin
 
-A 3D mannequin that reshapes itself from the customer's height, weight,
-bust, underbust and waist, for use on a lingerie e-commerce site.
+A 3D body preview that reshapes itself from the customer's height, weight,
+bust, underbust and waist, for use on a lingerie e-commerce site. Customers
+can switch between a textured model and a plain mannequin, and between
+front, side and back views.
 
 ## Try it
 
@@ -14,12 +16,16 @@ python3 -m http.server 8000
 
 ## How it works
 
-- `models/mannequin.glb` is the base mesh with four **morph targets** baked in:
-  `bust`, `underbust`, `waist` and `fat` (whole-body fullness driven by BMI).
+- `models/bikini.glb` (default "Model") and `models/mannequin.glb` each carry
+  four **morph targets**: `bust`, `underbust`, `waist` and `fat` (whole-body
+  fullness driven by BMI). Each has a calibration file next to it
+  (`models/*.json`) with the circumferences measured on the mesh.
+- Models are listed in `MODELS` in `src/mannequin-viewer.js`; add an entry
+  there to offer another preview.
 - `src/mannequin-viewer.js` loads it with Three.js. Height scales the whole
   model; weight sets the `fat` target from BMI; the waist, bust and underbust
   weights are then solved against the calibration measured on the mesh
-  (`CALIBRATION`) so the entered circumferences are reproduced.
+  so the entered circumferences are reproduced.
 - `index.html` is a demo page with height (ft/in), weight (kg) and bust /
   underbust / waist (inches), plus a bra-size and BMI readout.
 
@@ -41,14 +47,16 @@ python3 -m http.server 8000
 
 ## Regenerating the morph targets
 
-`tools/bake_morphs.py` computes the deformations and writes them into the GLB;
-`tools/measure.py` reports the resulting circumferences used for calibration.
-
 ```
 pip install numpy trimesh scipy shapely networkx
-python3 tools/bake_morphs.py original.glb models/mannequin.glb
-python3 tools/measure.py models/mannequin.glb   # copy numbers into CALIBRATION
+
+# textured model: bakes the GLB and writes its calibration JSON
+python3 tools/bake_bikini.py bikini_girl.glb models/bikini.glb models/bikini.json
+
+# plain mannequin: bake, then copy the measured numbers into models/mannequin.json
+python3 tools/bake_morphs.py free_female_mannequin_base_mesh.glb models/mannequin.glb
+python3 tools/measure.py models/mannequin.glb
 ```
 
-The base mesh is a free female mannequin base mesh (Sketchfab); check its
-licence before commercial use.
+Both base meshes come from Sketchfab; check each licence before commercial
+use.

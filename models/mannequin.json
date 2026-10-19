@@ -1,0 +1,12 @@
+{
+  "statureCm": 180,
+  "statureWorld": 1.8,
+  "baseBmi": 18.5,
+  "bmiPerFatUnit": 7,
+  "base": { "underbust": 75.1, "bust": 89.7, "waist": 64.4 },
+  "range": { "bust": [-0.6, 3.0], "underbust": [-0.6, 2.5], "waist": [-0.6, 3.0], "fat": [0, 2.5] },
+  "bustT": { "underbust": 4.6, "bust": 9.1, "waist": 0 },
+  "underbustT": { "underbust": 13.4, "bust": 3.7, "waist": 0 },
+  "waistT": { "underbust": 0, "bust": 0, "waist": 17.1 },
+  "fatT": { "underbust": 11.7, "bust": 10.8, "waist": 26.3 }
+}

@@ -10,6 +10,7 @@
   body { margin:0; font-family: Georgia, 'Times New Roman', serif; background:var(--bg); color:var(--ink); }
   .wrap { display:grid; grid-template-columns: 1fr 360px; min-height:100vh; }
   #viewer { position:relative; min-height:520px; }
+  .stage, #viewer { min-height:520px; }
   #viewer canvas { display:block; width:100% !important; height:100% !important; }
   aside { background:var(--card); padding:28px 26px; display:flex; flex-direction:column; gap:14px; border-left:1px solid #eee; overflow-y:auto; }
   h1 { font-weight:normal; font-size:26px; margin:0; letter-spacing:.02em; }
@@ -26,15 +27,32 @@
   .result b { font-size:26px; color:var(--accent); display:block; }
   .result small { color:var(--muted); font-size:12px; }
   .hint { font-size:12px; color:#9a8d87; font-family: system-ui, sans-serif; line-height:1.5; }
-  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; } #viewer { height:60vh; } aside { border-left:0; } }
+  .stage { position:relative; }
+  .switch { position:absolute; display:flex; gap:4px; background:rgba(255,255,255,.85); padding:4px; border-radius:999px; box-shadow:0 1px 4px rgba(0,0,0,.08); font-family: system-ui, sans-serif; z-index:2; }
+  .switch.top { top:16px; left:50%; transform:translateX(-50%); }
+  .switch.bottom { bottom:16px; left:50%; transform:translateX(-50%); }
+  .switch button { border:0; background:transparent; padding:7px 16px; border-radius:999px; font-size:13px; color:var(--muted); cursor:pointer; }
+  .switch button[aria-pressed=true] { background:var(--accent); color:#fff; }
+  .loading[hidden] { display:none; }
+  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family: system-ui, sans-serif; color:var(--muted); font-size:14px; pointer-events:none; }
+  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; } .stage, #viewer { height:65vh; } aside { border-left:0; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div id="viewer"></div>
+  <div class="stage">
+    <div id="viewer" style="height:100%"></div>
+    <div class="switch top" id="modelSwitch" role="group" aria-label="Preview"></div>
+    <div class="switch bottom" id="viewSwitch" role="group" aria-label="View">
+      <button data-view="front" aria-pressed="true">Front</button>
+      <button data-view="side" aria-pressed="false">Side</button>
+      <button data-view="back" aria-pressed="false">Back</button>
+    </div>
+    <div class="loading" id="loading">Loading model…</div>
+  </div>
   <aside>
     <h1>Find your fit</h1>
-    <p class="lead">Enter your measurements and the mannequin takes your shape.</p>
+    <p class="lead">Enter your measurements and the model takes your shape. Switch between the model and a plain mannequin at the top.</p>
 
     <h2>Body</h2>
     <label>Height
@@ -85,7 +103,7 @@
 } }
 </script>
 <script type="module">
-  import { MannequinViewer, braSize, bmiLabel } from './src/mannequin-viewer.js';
+  import { MannequinViewer, MODELS, braSize, bmiLabel } from './src/mannequin-viewer.js';
   const viewer = new MannequinViewer(document.getElementById('viewer'));
   window.viewer = viewer; // handy for debugging
 
@@ -107,6 +125,7 @@
       feet: +ft.value, inches: +inch.value, weightKg: v.kg,
       bustIn: v.b, underbustIn: v.ub, waistIn: v.w,
     });
+    if (!r) return;   // model still loading
     $('size').textContent = braSize(v.ub, v.b);
     $('diff').textContent = `bust − underbust = ${(v.b - v.ub).toFixed(1)} in`;
     $('bmi').textContent = r.bmi.toFixed(1);
@@ -117,7 +136,26 @@
     $(r).addEventListener('input', () => { $(n).value = $(r).value; apply(); });
   }
   ft.addEventListener('change', apply); inch.addEventListener('change', apply);
-  viewer.ready.then(apply);
+  // Preview switch: which model to show
+  const modelSwitch = $('modelSwitch'), loading = $('loading');
+  const press = (group, el) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === el));
+  for (const m of MODELS) {
+    const b = document.createElement('button');
+    b.textContent = m.name; b.dataset.model = m.id;
+    b.setAttribute('aria-pressed', m.id === MODELS[0].id);
+    b.addEventListener('click', async () => {
+      press(modelSwitch, b); loading.hidden = false;
+      await viewer.setModel(m.id); loading.hidden = true;
+    });
+    modelSwitch.appendChild(b);
+  }
+  // View switch: front / side / back
+  const viewSwitch = $('viewSwitch');
+  viewSwitch.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    press(viewSwitch, b); viewer.setView(b.dataset.view);
+  }));
+
+  viewer.ready.then(() => { loading.hidden = true; apply(); });
 </script>
 </body>
 </html>
