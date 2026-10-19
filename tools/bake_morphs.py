@@ -46,14 +46,26 @@ torso &= (y > 1.15) & (y < 1.50)
 
 # ---------- BUST target: push each breast outward from its own centre ----------
 D_bust = np.zeros_like(P)
-front = smooth((z - 0.02) / 0.05)                 # only the front of the chest moves
+front = smooth((z - 0.03) / 0.05)                 # only the front of the chest moves
+lateral = smooth((0.175 - np.abs(x)) / 0.045)     # fade out smoothly before the arms
 for sx in (-1, 1):
-    cx, cy = sx * 0.085, 1.355                     # breast apex (x, height)
-    d = np.sqrt(((x - cx) / 0.085) ** 2 + ((y - cy) / 0.085) ** 2)
-    w = smooth(1 - d) * front * torso * (sx * x > 0.0)
-    dirv = np.stack([(x - cx) * 2.0, (y - cy) * 1.0 - 0.05, np.ones_like(z)], 1)
-    dirv /= np.linalg.norm(dirv, axis=1, keepdims=True)
-    D_bust += dirv * (w * 0.05)[:, None]           # 5 cm forward at the apex
+    # breast centre sits inside the chest, a little below the apex
+    cx, cy, cz = sx * 0.085, 1.345, 0.045
+    # wide ellipsoidal region of influence
+    ry = np.where(y > cy, 0.14, 0.075)             # reaches further up than down
+    d = np.sqrt(((x - cx) / 0.11) ** 2 + ((y - cy) / ry) ** 2 + ((z - cz) / 0.17) ** 2)
+    w = smooth(1 - d) ** 1.5 * front * lateral * (y > 1.15) * (y < 1.55) * (sx * x > 0.005)
+    # inflate radially from the centre (makes the whole breast fuller) ...
+    rad = np.stack([x - cx, y - cy, z - cz], 1)
+    rad /= np.maximum(np.linalg.norm(rad, axis=1, keepdims=True), 1e-6)
+    rad[:, 0] = sx * np.maximum(sx * rad[:, 0], 0.0)   # never push toward the sternum
+    # ... blended with forward projection + slight sag near the apex only
+    extra = np.stack([np.zeros_like(x), -0.3 * np.ones_like(y), np.ones_like(z)], 1)
+    extra /= np.linalg.norm(extra, axis=1, keepdims=True)
+    a = w[:, None]                                    # 0 at the edge, ~1 at the apex
+    dirv = rad * (1 - 0.6 * a) + extra * (0.7 * a)
+    dirv /= np.maximum(np.linalg.norm(dirv, axis=1, keepdims=True), 1e-6)
+    D_bust += dirv * (w * 0.085)[:, None]           # ~8.5 cm growth at full weight
 
 # ---------- UNDERBUST target: inflate the ribcage radially ----------
 cy_u = 1.295

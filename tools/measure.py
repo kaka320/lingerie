@@ -17,4 +17,3 @@ print(f"{'base':10s} {circ(m0,1.30):16.1f} {circ(m0,1.35):12.1f}")
 for name,t in zip(g['meshes'][0]['extras']['targetNames'],prim['targets']):
     D=acc(t['POSITION'])@T; m=trimesh.Trimesh(world+D,F,process=False)
     print(f"{name:10s} {circ(m,1.30):16.1f} {circ(m,1.35):12.1f}")
-    m.export(f'model/preview_{name}.glb')

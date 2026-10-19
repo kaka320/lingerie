@@ -16,9 +16,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 export const CALIBRATION = {
   base: { underbust: 75.1, bust: 89.7 },
   // circumference gained at weight = 1.0 for each target
-  bustTarget: { underbust: 2.6, bust: 14.6 },
+  bustTarget: { underbust: 4.6, bust: 9.1 },
   underbustTarget: { underbust: 13.4, bust: 3.7 },
-  weightRange: [-0.6, 2.2],
+  weightRange: [-0.6, 3.0],
 };
 
 export function weightsFor(underbustCm, bustCm, c = CALIBRATION) {
