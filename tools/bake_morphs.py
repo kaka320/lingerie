@@ -1,4 +1,4 @@
-"""Bake 'bust' and 'underbust' morph targets into the mannequin GLB.
+"""Bake 'bust', 'underbust', 'waist' and 'fat' morph targets into the mannequin GLB.
 
 Usage: python bake_morphs.py input.glb output.glb
 """
@@ -27,6 +27,17 @@ P = read_acc(prim['attributes']['POSITION'])
 N = read_acc(prim['attributes']['NORMAL'])
 F = read_acc(prim['indices']).astype(np.int64).reshape(-1, 3)
 print('verts', len(P), 'bounds', P.min(0).round(3), P.max(0).round(3))
+from scipy.spatial import cKDTree
+_tree = cKDTree(P)
+_nbrs = _tree.query_ball_point(P, r=0.009)        # ~1.6 cm neighbourhoods (raw units, mesh is 1.0 tall)
+def smooth_field(V):
+    """Average a per-vertex vector field over spatial neighbours (position based, so
+    the mesh's overlapping patches get identical values)."""
+    out = np.zeros_like(V)
+    for i, nb in enumerate(_nbrs): out[i] = V[nb].mean(0)
+    return out
+def unit(V): return V / np.maximum(np.linalg.norm(V, axis=1, keepdims=True), 1e-9)
+
 
 # The raw mesh is Z-up and 1 unit tall; the node chain scales it by 1.8 and
 # rotates it to Y-up with +Z facing front.  Work in that world frame (metres):
@@ -35,6 +46,26 @@ S = 1.8
 x, y, z = S * P[:, 0], S * P[:, 2], -S * P[:, 1]
 def to_raw(D):  # world-frame displacement -> raw mesh frame
     return np.stack([D[:, 0] / S, -D[:, 2] / S, D[:, 1] / S], 1)
+
+def outward_dir():
+    """Rough outward direction for every vertex: away from the torso, arm or leg axis.
+    Used only to orient normals, because the mesh is a double shell (inner surface has
+    inward-pointing normals)."""
+    cx = np.zeros_like(x); cz = np.zeros_like(z)
+    legs = (y < 0.98) & (np.abs(x) < 0.17)
+    arms = (np.abs(x) > 0.15) & (y > 0.85) & (y < 1.52) & ~legs
+    cx[legs] = np.sign(x[legs]) * 0.09
+    cx[arms] = np.sign(x[arms]) * 0.215; cz[arms] = -0.02
+    return unit(np.stack([x - cx, np.zeros_like(y), z - cz], 1))
+OUT = outward_dir()
+def orient(Nv):
+    """Flip normals that point inward, then smooth spatially."""
+    flip = (Nv * OUT).sum(1) < 0
+    Nv = Nv.copy(); Nv[flip] *= -1
+    return unit(smooth_field(Nv))
+def to_world_dir(V): return np.stack([V[:, 0], V[:, 2], -V[:, 1]], 1)
+def to_raw_dir(V):   return np.stack([V[:, 0], -V[:, 2], V[:, 1]], 1)
+
 
 def smooth(t):
     t = np.clip(t, 0, 1); return t * t * (3 - 2 * t)
@@ -75,15 +106,57 @@ rad = np.stack([x, np.zeros_like(y), z - 0.01], 1)
 rn = np.linalg.norm(rad, axis=1, keepdims=True); rad = rad / np.maximum(rn, 1e-6)
 D_under = rad * (w_u * 0.022)[:, None]            # 2.2 cm radial growth (~14 cm circumference)
 
+# ---------- WAIST target: inflate the waist radially ----------
+cy_w = 1.19                                       # narrowest point of the waist
+w_w = smooth(1 - np.abs(y - cy_w) / 0.11) * (np.abs(x) < 0.17)
+rad_w = np.stack([x, np.zeros_like(y), z - 0.0], 1)
+rad_w /= np.maximum(np.linalg.norm(rad_w, axis=1, keepdims=True), 1e-6)
+belly = 1.0 + 0.6 * smooth(z / 0.06)             # the front grows a little more than the back
+D_waist = rad_w * (w_w * belly * 0.022)[:, None]  # ~2.2 cm radial (~14 cm circumference)
+
+# ---------- BODY FAT target: inflate along the vertex normals, weighted by region ----------
+# Authored normals, unmodified: they are consistent within each shell of this
+# double-shell mesh. The viewer never uses a negative fat weight, so the inner
+# shell only ever moves inward and stays hidden.
+Nw = to_world_dir(unit(N))
+def band(lo, hi, feather=0.06):
+    return smooth((y - lo) / feather + 0.5) * smooth((hi - y) / feather + 0.5)
+profile = (0.25 * band(1.55, 1.90)          # head / neck
+         + 0.55 * band(1.38, 1.55)          # shoulders / upper chest
+         + 0.65 * band(1.28, 1.38)          # bust
+         + 1.00 * band(1.04, 1.28)          # waist / belly
+         + 1.10 * band(0.84, 1.04)          # hips / buttocks
+         + 1.00 * band(0.52, 0.84)          # thighs
+         + 0.60 * band(0.18, 0.52)          # calves
+         + 0.10 * band(-0.1, 0.18))         # feet
+profile = profile * (1 + 0.8 * smooth(z / 0.06) * band(1.00, 1.30) * smooth((0.17 - np.abs(x)) / 0.04))  # belly bonus
+profile = np.where((np.abs(x) > 0.15) & (y < 0.95), 0.25, profile)                        # hands
+Nf = Nw.copy()
+legs = (y < 1.02) & (np.abs(x) < 0.16)
+Nf[legs, 0] = np.where(np.sign(x[legs]) * Nf[legs, 0] < 0, 0.0, Nf[legs, 0])   # thighs never grow inward
+D_fat = Nf * (profile * 0.025)[:, None]           # 2.5 cm at profile 1.0
+# Smooth the field over spatial neighbours that face the same way (so overlapping
+# patches move together, but the inner shell never mixes with the outer one).
+Nn = unit(N)
+Ds = np.empty_like(D_fat)
+for i, nb in enumerate(_nbrs):
+    nb = np.asarray(nb); same = nb[(Nn[nb] @ Nn[i]) > 0.6]
+    Ds[i] = D_fat[same].mean(0) if len(same) else D_fat[i]
+D_fat = Ds
+
 # ---------- normal deltas ----------
 def vertex_normals(V):
+    """Vertex normals (raw frame) from faces, with the authored normal's orientation."""
     fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
-    vn = np.zeros_like(V)
-    for i in range(3): np.add.at(vn, F[:, i], fn)
-    return vn / np.maximum(np.linalg.norm(vn, axis=1, keepdims=True), 1e-9)
+    a = np.zeros_like(V)
+    for i in range(3): np.add.at(a, F[:, i], fn)
+    a = unit(a)
+    flip = (a * N).sum(1) < 0
+    a[flip] *= -1
+    return a
 N0 = vertex_normals(P)
 targets = []
-for name, D in (('bust', to_raw(D_bust)), ('underbust', to_raw(D_under))):
+for name, D in (('bust', to_raw(D_bust)), ('underbust', to_raw(D_under)), ('waist', to_raw(D_waist)), ('fat', to_raw(D_fat))):
     Nn = vertex_normals(P + D) - N0
     targets.append((name, D.astype(np.float32), Nn.astype(np.float32)))
 

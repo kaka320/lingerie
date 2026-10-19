@@ -1,7 +1,7 @@
 # Lingerie fit mannequin
 
-A 3D mannequin that reshapes its bust and underbust from the customer's
-measurements, for use on a lingerie e-commerce site.
+A 3D mannequin that reshapes itself from the customer's height, weight,
+bust, underbust and waist, for use on a lingerie e-commerce site.
 
 ## Try it
 
@@ -14,12 +14,14 @@ python3 -m http.server 8000
 
 ## How it works
 
-- `models/mannequin.glb` is the base mesh with two **morph targets** baked in:
-  `bust` (pushes the breasts forward) and `underbust` (inflates the ribcage).
-- `src/mannequin-viewer.js` loads it with Three.js and converts centimetre
-  measurements into morph weights by solving a small 2×2 system against the
-  calibration measured on the mesh (`CALIBRATION`).
-- `index.html` is a demo page with inputs, sliders and a cup-size estimate.
+- `models/mannequin.glb` is the base mesh with four **morph targets** baked in:
+  `bust`, `underbust`, `waist` and `fat` (whole-body fullness driven by BMI).
+- `src/mannequin-viewer.js` loads it with Three.js. Height scales the whole
+  model; weight sets the `fat` target from BMI; the waist, bust and underbust
+  weights are then solved against the calibration measured on the mesh
+  (`CALIBRATION`) so the entered circumferences are reproduced.
+- `index.html` is a demo page with height (ft/in), weight (kg) and bust /
+  underbust / waist (inches), plus a bra-size and BMI readout.
 
 ## Embedding in your shop
 
@@ -31,7 +33,9 @@ python3 -m http.server 8000
 <script type="module">
   import { MannequinViewer } from './src/mannequin-viewer.js';
   const v = new MannequinViewer(document.getElementById('viewer'), { modelUrl: 'models/mannequin.glb' });
-  v.ready.then(() => v.setMeasurements(75, 90)); // underbust cm, bust cm
+  v.ready.then(() => v.setBodyImperial({
+    feet: 5, inches: 5, weightKg: 58, bustIn: 35, underbustIn: 30, waistIn: 26 }));
+  // or metric: v.setBody({ heightCm, weightKg, bustCm, underbustCm, waistCm })
 </script>
 ```
 

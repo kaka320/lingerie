@@ -5,24 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Find your fit</title>
 <style>
-  :root { --bg:#f6f2ee; --ink:#2b2320; --accent:#b4536b; --card:#fff; }
+  :root { --bg:#f6f2ee; --ink:#2b2320; --accent:#b4536b; --card:#fff; --muted:#6b5e58; }
   * { box-sizing:border-box; }
   body { margin:0; font-family: Georgia, 'Times New Roman', serif; background:var(--bg); color:var(--ink); }
-  .wrap { display:grid; grid-template-columns: 1fr 340px; min-height:100vh; }
+  .wrap { display:grid; grid-template-columns: 1fr 360px; min-height:100vh; }
   #viewer { position:relative; min-height:520px; }
   #viewer canvas { display:block; width:100% !important; height:100% !important; }
-  aside { background:var(--card); padding:32px 28px; display:flex; flex-direction:column; gap:18px; border-left:1px solid #eee; }
+  aside { background:var(--card); padding:28px 26px; display:flex; flex-direction:column; gap:14px; border-left:1px solid #eee; overflow-y:auto; }
   h1 { font-weight:normal; font-size:26px; margin:0; letter-spacing:.02em; }
-  p.lead { margin:0; color:#6b5e58; font-size:14px; line-height:1.5; font-family: system-ui, sans-serif; }
-  label { display:flex; flex-direction:column; gap:6px; font-family: system-ui, sans-serif; font-size:13px; color:#6b5e58; }
-  .row { display:flex; gap:10px; align-items:center; }
-  input[type=number] { width:90px; padding:8px 10px; font-size:16px; border:1px solid #ddd; border-radius:6px; }
+  p.lead { margin:0; color:var(--muted); font-size:13px; line-height:1.5; font-family: system-ui, sans-serif; }
+  h2 { font-family: system-ui, sans-serif; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:10px 0 0; font-weight:600; }
+  label { display:flex; flex-direction:column; gap:5px; font-family: system-ui, sans-serif; font-size:13px; color:var(--muted); }
+  .row { display:flex; gap:8px; align-items:center; }
+  input[type=number], select { padding:7px 9px; font-size:15px; border:1px solid #ddd; border-radius:6px; background:#fff; }
+  input[type=number] { width:78px; }
   input[type=range] { flex:1; accent-color:var(--accent); }
-  .result { background:var(--bg); border-radius:10px; padding:16px; font-family: system-ui, sans-serif; }
-  .result b { font-size:30px; color:var(--accent); display:block; }
-  .result small { color:#6b5e58; }
+  .unit { font-size:12px; color:#9a8d87; }
+  .results { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .result { background:var(--bg); border-radius:10px; padding:12px 14px; font-family: system-ui, sans-serif; }
+  .result b { font-size:26px; color:var(--accent); display:block; }
+  .result small { color:var(--muted); font-size:12px; }
   .hint { font-size:12px; color:#9a8d87; font-family: system-ui, sans-serif; line-height:1.5; }
-  @media (max-width: 820px) { .wrap { grid-template-columns:1fr; } #viewer { height:60vh; } aside { border-left:0; } }
+  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; } #viewer { height:60vh; } aside { border-left:0; } }
 </style>
 </head>
 <body>
@@ -30,27 +34,47 @@
   <div id="viewer"></div>
   <aside>
     <h1>Find your fit</h1>
-    <p class="lead">Enter your measurements and the mannequin takes your shape. Measure snugly under the bust, and loosely around the fullest part.</p>
+    <p class="lead">Enter your measurements and the mannequin takes your shape.</p>
 
-    <label>Underbust (cm)
+    <h2>Body</h2>
+    <label>Height
       <div class="row">
-        <input id="ub" type="number" min="60" max="105" step="0.5" value="75">
-        <input id="ubr" type="range" min="60" max="105" step="0.5" value="75">
+        <select id="ft"></select><span class="unit">ft</span>
+        <select id="in"></select><span class="unit">in</span>
       </div>
     </label>
-    <label>Bust (cm)
+    <label>Weight
       <div class="row">
-        <input id="b" type="number" min="70" max="130" step="0.5" value="90">
-        <input id="br" type="range" min="70" max="130" step="0.5" value="90">
+        <input id="kg" type="number" min="35" max="160" step="0.5" value="58"><span class="unit">kg</span>
+        <input id="kgr" type="range" min="35" max="160" step="0.5" value="58">
       </div>
     </label>
 
-    <div class="result">
-      <small>Suggested size</small>
-      <b id="size">75B</b>
-      <small id="diff"></small>
+    <h2>Measurements (inches)</h2>
+    <label>Bust — around the fullest part
+      <div class="row">
+        <input id="b" type="number" min="26" max="60" step="0.5" value="35">
+        <input id="br" type="range" min="26" max="60" step="0.5" value="35">
+      </div>
+    </label>
+    <label>Underbust — snug, just under the bust
+      <div class="row">
+        <input id="ub" type="number" min="22" max="50" step="0.5" value="30">
+        <input id="ubr" type="range" min="22" max="50" step="0.5" value="30">
+      </div>
+    </label>
+    <label>Waist — narrowest point
+      <div class="row">
+        <input id="w" type="number" min="20" max="60" step="0.5" value="26">
+        <input id="wr" type="range" min="20" max="60" step="0.5" value="26">
+      </div>
+    </label>
+
+    <div class="results">
+      <div class="result"><small>Suggested bra size</small><b id="size">—</b><small id="diff"></small></div>
+      <div class="result"><small>BMI</small><b id="bmi">—</b><small id="bmiLabel"></small></div>
     </div>
-    <p class="hint">Drag to rotate the mannequin. Sizes are a starting point; check each product's size chart.</p>
+    <p class="hint">Drag to rotate. Sizes are a starting point; check each product's size chart.</p>
   </aside>
 </div>
 
@@ -61,28 +85,38 @@
 } }
 </script>
 <script type="module">
-  import { MannequinViewer, cupSize } from './src/mannequin-viewer.js';
+  import { MannequinViewer, braSize, bmiLabel } from './src/mannequin-viewer.js';
   const viewer = new MannequinViewer(document.getElementById('viewer'));
   window.viewer = viewer; // handy for debugging
 
-  const ub = document.getElementById('ub'), ubr = document.getElementById('ubr');
-  const b = document.getElementById('b'), br = document.getElementById('br');
-  const size = document.getElementById('size'), diff = document.getElementById('diff');
+  const $ = (id) => document.getElementById(id);
+  const ft = $('ft'), inch = $('in');
+  for (let f = 4; f <= 6; f++) ft.add(new Option(f, f));
+  for (let i = 0; i <= 11; i++) inch.add(new Option(i, i));
+  ft.value = 5; inch.value = 5;
+
+  const pairs = [['kg', 'kgr'], ['b', 'br'], ['ub', 'ubr'], ['w', 'wr']];
 
   function apply() {
-    let u = parseFloat(ub.value), v = parseFloat(b.value);
-    if (!isFinite(u) || !isFinite(v)) return;
-    if (v < u + 4) { v = u + 4; b.value = v; }  // bust must be larger than underbust
-    ubr.value = u; br.value = v;
-    viewer.setMeasurements(u, v);
-    size.textContent = cupSize(u, v);
-    diff.textContent = `bust − underbust = ${(v - u).toFixed(1)} cm`;
+    const v = Object.fromEntries(pairs.map(([n]) => [n, parseFloat($(n).value)]));
+    if (Object.values(v).some((x) => !isFinite(x))) return;
+    if (v.b < v.ub + 1) { v.b = v.ub + 1; $('b').value = v.b; }   // bust must exceed underbust
+    for (const [n, r] of pairs) $(r).value = $(n).value;
+
+    const r = viewer.setBodyImperial({
+      feet: +ft.value, inches: +inch.value, weightKg: v.kg,
+      bustIn: v.b, underbustIn: v.ub, waistIn: v.w,
+    });
+    $('size').textContent = braSize(v.ub, v.b);
+    $('diff').textContent = `bust − underbust = ${(v.b - v.ub).toFixed(1)} in`;
+    $('bmi').textContent = r.bmi.toFixed(1);
+    $('bmiLabel').textContent = bmiLabel(r.bmi);
   }
-  const link = (num, range) => {
-    num.addEventListener('input', () => { range.value = num.value; apply(); });
-    range.addEventListener('input', () => { num.value = range.value; apply(); });
-  };
-  link(ub, ubr); link(b, br);
+  for (const [n, r] of pairs) {
+    $(n).addEventListener('input', () => { $(r).value = $(n).value; apply(); });
+    $(r).addEventListener('input', () => { $(n).value = $(r).value; apply(); });
+  }
+  ft.addEventListener('change', apply); inch.addEventListener('change', apply);
   viewer.ready.then(apply);
 </script>
 </body>
