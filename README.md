@@ -26,8 +26,12 @@ python3 -m http.server 8000
   model; weight sets the `fat` target from BMI; the waist, bust and underbust
   weights are then solved against the calibration measured on the mesh
   so the entered circumferences are reproduced.
-- `index.html` is a demo page with height (ft/in), weight (kg) and bust /
-  underbust / waist (inches), plus a bra-size and BMI readout.
+- `index.html` is the page: height, weight (kg) and bust / underbust / waist
+  (inches) with −/+ steppers and sliders, plus a bra-size readout. On phones
+  the 3D preview stays pinned at the top while the controls scroll beneath,
+  and the bra size floats on the preview.
+- Bra size uses the "+2" method common in Bangladesh: band = underbust + 2
+  inches, rounded up to an even number; cup = bust − band (1 = A, 2 = B, …).
 
 ## Embedding in your shop
 

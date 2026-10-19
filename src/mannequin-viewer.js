@@ -77,13 +77,18 @@ export function solve(m, c) {
   return { weights: { ...w, fat }, scale, bmi };
 }
 
-/** Bra size from inches: band = underbust rounded to an even number, cup from the difference. */
+/**
+ * Bra size from inches using the "+2" method common in Bangladesh / South Asia:
+ * band = underbust + 2, rounded up to an even number; cup = bust − band
+ * (0 = AA, 1 = A, 2 = B, 3 = C, 4 = D, 5 = DD, …).
+ */
 export function braSize(underbustIn, bustIn) {
-  let band = Math.round(underbustIn);
+  let band = Math.round(underbustIn) + 2;
   if (band % 2) band += 1;
-  const cups = ['AA', 'A', 'B', 'C', 'D', 'DD', 'DDD', 'G', 'H', 'I', 'J', 'K'];
-  const i = Math.max(0, Math.min(cups.length - 1, Math.round(bustIn - band)));
-  return `${band}${cups[i]}`;
+  const cups = ['AA', 'A', 'B', 'C', 'D', 'DD', 'E', 'F', 'G', 'H', 'I', 'J'];
+  const diff = Math.round(bustIn - band);
+  if (diff < 0) return `${band}AA`;
+  return `${band}${cups[Math.min(cups.length - 1, diff)]}`;
 }
 
 export function bmiLabel(bmi) {
@@ -103,7 +108,7 @@ export class MannequinViewer {
     this.camera = new THREE.PerspectiveCamera(32, w / h, 0.05, 50);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 860 ? 1.5 : 2));
     this.renderer.setSize(w, h);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -190,14 +195,16 @@ export class MannequinViewer {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     if (!w || !h) return;
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h);
+    this.renderer.setSize(w, h, false);
   }
 
   /** Camera preset: 'front' | 'side' | 'back'. Frames the whole body. */
   setView(view) {
     this.view = view;
     const h = this.heightM;
-    const d = Math.max(2.4, h * 2.0), ty = h * 0.52;
+    // distance that fits the whole body vertically; wider stages need no extra room
+    const fit = (h * 0.62) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const d = Math.max(2.2, fit), ty = h * 0.52;
     const dir = { front: [0, 1], side: [1, 0], back: [0, -1] }[view] || [0, 1];
     this.controls.target.set(0, ty, 0);
     this.camera.position.set(dir[0] * d, ty + 0.1, dir[1] * d);

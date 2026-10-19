@@ -2,97 +2,169 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f2ee">
 <title>Find your fit</title>
 <style>
-  :root { --bg:#f6f2ee; --ink:#2b2320; --accent:#b4536b; --card:#fff; --muted:#6b5e58; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family: Georgia, 'Times New Roman', serif; background:var(--bg); color:var(--ink); }
-  .wrap { display:grid; grid-template-columns: 1fr 360px; min-height:100vh; }
-  #viewer { position:relative; min-height:520px; }
-  .stage, #viewer { min-height:520px; }
-  #viewer canvas { display:block; width:100% !important; height:100% !important; }
-  aside { background:var(--card); padding:28px 26px; display:flex; flex-direction:column; gap:14px; border-left:1px solid #eee; overflow-y:auto; }
-  h1 { font-weight:normal; font-size:26px; margin:0; letter-spacing:.02em; }
-  p.lead { margin:0; color:var(--muted); font-size:13px; line-height:1.5; font-family: system-ui, sans-serif; }
-  h2 { font-family: system-ui, sans-serif; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:10px 0 0; font-weight:600; }
-  label { display:flex; flex-direction:column; gap:5px; font-family: system-ui, sans-serif; font-size:13px; color:var(--muted); }
-  .row { display:flex; gap:8px; align-items:center; }
-  input[type=number], select { padding:7px 9px; font-size:15px; border:1px solid #ddd; border-radius:6px; background:#fff; }
-  input[type=number] { width:78px; }
-  input[type=range] { flex:1; accent-color:var(--accent); }
-  .unit { font-size:12px; color:#9a8d87; }
-  .results { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .result { background:var(--bg); border-radius:10px; padding:12px 14px; font-family: system-ui, sans-serif; }
-  .result b { font-size:26px; color:var(--accent); display:block; }
-  .result small { color:var(--muted); font-size:12px; }
-  .hint { font-size:12px; color:#9a8d87; font-family: system-ui, sans-serif; line-height:1.5; }
-  .stage { position:relative; }
-  .switch { position:absolute; display:flex; gap:4px; background:rgba(255,255,255,.85); padding:4px; border-radius:999px; box-shadow:0 1px 4px rgba(0,0,0,.08); font-family: system-ui, sans-serif; z-index:2; }
-  .switch.top { top:16px; left:50%; transform:translateX(-50%); }
-  .switch.bottom { bottom:16px; left:50%; transform:translateX(-50%); }
-  .switch button { border:0; background:transparent; padding:7px 16px; border-radius:999px; font-size:13px; color:var(--muted); cursor:pointer; }
-  .switch button[aria-pressed=true] { background:var(--accent); color:#fff; }
+  :root { --bg:#f6f2ee; --ink:#2b2320; --accent:#b4536b; --accent-soft:#f3e3e7; --card:#fff; --muted:#6b5e58; --line:#e7dfda; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; background:var(--bg); color:var(--ink); }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  .wrap { display:grid; grid-template-columns: 1fr 380px; min-height:100vh; min-height:100dvh; }
+
+  /* ---------- 3D stage ---------- */
+  .stage { position:relative; min-height:520px; background:var(--bg); }
+  #viewer { position:absolute; inset:0; }
+  #viewer canvas { display:block; width:100% !important; height:100% !important; touch-action:none; }
+  .pill { position:absolute; left:50%; transform:translateX(-50%); display:flex; gap:2px; background:rgba(255,255,255,.9);
+          padding:4px; border-radius:999px; box-shadow:0 1px 6px rgba(0,0,0,.08); z-index:2; backdrop-filter: blur(6px); }
+  .pill.top { top:max(12px, env(safe-area-inset-top)); }
+  .pill.bottom { bottom:14px; }
+  .pill button { border:0; background:transparent; min-height:36px; padding:0 16px; border-radius:999px; font:inherit; font-size:14px; color:var(--muted); cursor:pointer; }
+  .pill button[aria-pressed=true] { background:var(--accent); color:#fff; }
+  .chips { position:absolute; left:12px; bottom:14px; display:flex; flex-direction:column; gap:6px; z-index:2; pointer-events:none; }
+  .chip { background:rgba(255,255,255,.92); border-radius:12px; padding:6px 10px; box-shadow:0 1px 6px rgba(0,0,0,.08); line-height:1.15; }
+  .chip small { display:block; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .chip b { font-size:18px; color:var(--accent); }
+  .chip span { font-size:11px; color:var(--muted); margin-left:4px; }
+  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:14px; pointer-events:none; }
   .loading[hidden] { display:none; }
-  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family: system-ui, sans-serif; color:var(--muted); font-size:14px; pointer-events:none; }
-  @media (max-width: 860px) { .wrap { grid-template-columns:1fr; } .stage, #viewer { height:65vh; } aside { border-left:0; } }
+
+  /* ---------- controls ---------- */
+  aside { background:var(--card); padding:28px 24px 32px; border-left:1px solid var(--line); overflow-y:auto; }
+  h1 { font-family: Georgia, 'Times New Roman', serif; font-weight:normal; font-size:26px; margin:0 0 4px; }
+  p.lead { margin:0 0 8px; color:var(--muted); font-size:14px; line-height:1.45; }
+  h2 { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:22px 0 4px; font-weight:600; }
+  .field { padding:12px 0; border-bottom:1px solid var(--line); }
+  .field:last-of-type { border-bottom:0; }
+  .head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .label { font-size:15px; font-weight:600; }
+  .label small { display:block; font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; }
+  .stepper { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .stepper button { width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:#fff; color:var(--ink);
+                    font-size:22px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; touch-action:manipulation; }
+  .stepper button:active { background:var(--accent-soft); border-color:var(--accent); }
+  .value { display:flex; align-items:baseline; gap:3px; min-width:72px; justify-content:center; }
+  .value input { width:56px; border:0; border-bottom:2px solid transparent; background:transparent; text-align:right;
+                 font:inherit; font-size:20px; font-weight:600; color:var(--ink); padding:2px 0; -moz-appearance:textfield; }
+  .value input:focus { outline:none; border-bottom-color:var(--accent); }
+  .value input::-webkit-outer-spin-button, .value input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .value .unit, .value output { font-size:13px; color:var(--muted); }
+  .value output { font-size:20px; font-weight:600; color:var(--ink); }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:32px; margin:6px 0 0; background:transparent; touch-action:pan-y; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:3px; background:linear-gradient(var(--accent),var(--accent)) 0/var(--p,50%) 100% no-repeat, var(--line); }
+  input[type=range]::-moz-range-track { height:6px; border-radius:3px; background:var(--line); }
+  input[type=range]::-moz-range-progress { height:6px; border-radius:3px; background:var(--accent); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px; margin-top:-10px; border-radius:50%; background:#fff; border:2px solid var(--accent); box-shadow:0 1px 4px rgba(0,0,0,.2); }
+  input[type=range]::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:#fff; border:2px solid var(--accent); }
+  .results { display:grid; gap:10px; margin-top:18px; }
+  .result { background:var(--bg); border-radius:12px; padding:12px 14px; }
+  .result small { color:var(--muted); font-size:12px; display:block; }
+  .result b { font-size:26px; color:var(--accent); display:block; margin:2px 0; }
+  .hint { font-size:12px; color:#9a8d87; line-height:1.5; margin-top:16px; }
+
+  /* ---------- phones: preview pinned on top, controls scroll beneath ---------- */
+  @media (max-width: 860px) {
+    .wrap { display:block; }
+    .stage { position:sticky; top:0; z-index:5; height:52vh; height:52svh; min-height:300px; border-bottom:1px solid var(--line); }
+    .pill button { min-height:34px; padding:0 13px; font-size:13px; }
+    .pill.bottom { left:auto; right:12px; transform:none; }
+    aside { border-left:0; padding:16px 16px calc(28px + env(safe-area-inset-bottom)); }
+    h1 { font-size:22px; }
+    p.lead { font-size:13px; }
+    h2 { margin-top:14px; }
+    .results { display:none; }      /* shown as chips on the preview instead */
+  }
+  @media (min-width: 861px) {
+    .chips { display:none; }
+    .wrap { height:100vh; height:100dvh; }   /* preview fills the window; only the panel scrolls */
+    .stage { min-height:0; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="stage">
-    <div id="viewer" style="height:100%"></div>
-    <div class="switch top" id="modelSwitch" role="group" aria-label="Preview"></div>
-    <div class="switch bottom" id="viewSwitch" role="group" aria-label="View">
+    <div id="viewer"></div>
+    <div class="pill top" id="modelSwitch" role="group" aria-label="Preview"></div>
+    <div class="pill bottom" id="viewSwitch" role="group" aria-label="View">
       <button data-view="front" aria-pressed="true">Front</button>
       <button data-view="side" aria-pressed="false">Side</button>
       <button data-view="back" aria-pressed="false">Back</button>
     </div>
+    <div class="chips" aria-live="polite">
+      <div class="chip"><small>Bra size</small><b class="out-size">—</b></div>
+    </div>
     <div class="loading" id="loading">Loading model…</div>
   </div>
+
   <aside>
     <h1>Find your fit</h1>
-    <p class="lead">Enter your measurements and the model takes your shape. Switch between the model and a plain mannequin at the top.</p>
+    <p class="lead">Enter your measurements and the model takes your shape. Drag the model to turn it.</p>
 
     <h2>Body</h2>
-    <label>Height
-      <div class="row">
-        <select id="ft"></select><span class="unit">ft</span>
-        <select id="in"></select><span class="unit">in</span>
+    <div class="field" data-key="height">
+      <div class="head">
+        <div class="label">Height</div>
+        <div class="stepper">
+          <button type="button" data-step="-1" aria-label="Decrease height">−</button>
+          <div class="value"><output id="heightOut">5′ 5″</output></div>
+          <button type="button" data-step="1" aria-label="Increase height">+</button>
+        </div>
       </div>
-    </label>
-    <label>Weight
-      <div class="row">
-        <input id="kg" type="number" min="35" max="160" step="0.5" value="58"><span class="unit">kg</span>
-        <input id="kgr" type="range" min="35" max="160" step="0.5" value="58">
+      <input type="range" id="height" min="54" max="78" step="1" value="65" aria-label="Height in inches">
+    </div>
+    <div class="field" data-key="kg">
+      <div class="head">
+        <div class="label">Weight</div>
+        <div class="stepper">
+          <button type="button" data-step="-1" aria-label="Decrease weight">−</button>
+          <div class="value"><input id="kg" type="number" inputmode="decimal" min="35" max="160" step="0.5" value="58" aria-label="Weight in kg"><span class="unit">kg</span></div>
+          <button type="button" data-step="1" aria-label="Increase weight">+</button>
+        </div>
       </div>
-    </label>
+      <input type="range" id="kgr" min="35" max="160" step="0.5" value="58" aria-label="Weight slider">
+    </div>
 
-    <h2>Measurements (inches)</h2>
-    <label>Bust — around the fullest part
-      <div class="row">
-        <input id="b" type="number" min="26" max="60" step="0.5" value="35">
-        <input id="br" type="range" min="26" max="60" step="0.5" value="35">
+    <h2>Measurements</h2>
+    <div class="field" data-key="b">
+      <div class="head">
+        <div class="label">Bust<small>Around the fullest part</small></div>
+        <div class="stepper">
+          <button type="button" data-step="-0.5" aria-label="Decrease bust">−</button>
+          <div class="value"><input id="b" type="number" inputmode="decimal" min="26" max="60" step="0.5" value="35" aria-label="Bust in inches"><span class="unit">in</span></div>
+          <button type="button" data-step="0.5" aria-label="Increase bust">+</button>
+        </div>
       </div>
-    </label>
-    <label>Underbust — snug, just under the bust
-      <div class="row">
-        <input id="ub" type="number" min="22" max="50" step="0.5" value="30">
-        <input id="ubr" type="range" min="22" max="50" step="0.5" value="30">
+      <input type="range" id="br" min="26" max="60" step="0.5" value="35" aria-label="Bust slider">
+    </div>
+    <div class="field" data-key="ub">
+      <div class="head">
+        <div class="label">Underbust<small>Snug, just under the bust</small></div>
+        <div class="stepper">
+          <button type="button" data-step="-0.5" aria-label="Decrease underbust">−</button>
+          <div class="value"><input id="ub" type="number" inputmode="decimal" min="22" max="50" step="0.5" value="30" aria-label="Underbust in inches"><span class="unit">in</span></div>
+          <button type="button" data-step="0.5" aria-label="Increase underbust">+</button>
+        </div>
       </div>
-    </label>
-    <label>Waist — narrowest point
-      <div class="row">
-        <input id="w" type="number" min="20" max="60" step="0.5" value="26">
-        <input id="wr" type="range" min="20" max="60" step="0.5" value="26">
+      <input type="range" id="ubr" min="22" max="50" step="0.5" value="30" aria-label="Underbust slider">
+    </div>
+    <div class="field" data-key="w">
+      <div class="head">
+        <div class="label">Waist<small>Narrowest point</small></div>
+        <div class="stepper">
+          <button type="button" data-step="-0.5" aria-label="Decrease waist">−</button>
+          <div class="value"><input id="w" type="number" inputmode="decimal" min="20" max="60" step="0.5" value="26" aria-label="Waist in inches"><span class="unit">in</span></div>
+          <button type="button" data-step="0.5" aria-label="Increase waist">+</button>
+        </div>
       </div>
-    </label>
+      <input type="range" id="wr" min="20" max="60" step="0.5" value="26" aria-label="Waist slider">
+    </div>
 
     <div class="results">
-      <div class="result"><small>Suggested bra size</small><b id="size">—</b><small id="diff"></small></div>
-      <div class="result"><small>BMI</small><b id="bmi">—</b><small id="bmiLabel"></small></div>
+      <div class="result"><small>Suggested bra size</small><b class="out-size">—</b><small class="out-diff"></small></div>
     </div>
-    <p class="hint">Drag to rotate. Sizes are a starting point; check each product's size chart.</p>
+    <p class="hint">Sizes are a starting point; check each product's size chart.</p>
   </aside>
 </div>
 
@@ -103,39 +175,61 @@
 } }
 </script>
 <script type="module">
-  import { MannequinViewer, MODELS, braSize, bmiLabel } from './src/mannequin-viewer.js';
+  import { MannequinViewer, MODELS, braSize } from './src/mannequin-viewer.js';
   const viewer = new MannequinViewer(document.getElementById('viewer'));
   window.viewer = viewer; // handy for debugging
 
   const $ = (id) => document.getElementById(id);
-  const ft = $('ft'), inch = $('in');
-  for (let f = 4; f <= 6; f++) ft.add(new Option(f, f));
-  for (let i = 0; i <= 11; i++) inch.add(new Option(i, i));
-  ft.value = 5; inch.value = 5;
+  const setAll = (cls, text) => document.querySelectorAll('.' + cls).forEach((el) => { el.textContent = text; });
+  const fill = (range) => range.style.setProperty('--p', ((range.value - range.min) / (range.max - range.min)) * 100 + '%');
 
+  // number box <-> slider pairs
   const pairs = [['kg', 'kgr'], ['b', 'br'], ['ub', 'ubr'], ['w', 'wr']];
+  const height = $('height');
+  const fmtHeight = (n) => `${Math.floor(n / 12)}′ ${n % 12}″`;
+
+  // Keep the 3D view updating smoothly while dragging: one update per animation frame.
+  let queued = false;
+  const schedule = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; apply(); }); } };
 
   function apply() {
     const v = Object.fromEntries(pairs.map(([n]) => [n, parseFloat($(n).value)]));
     if (Object.values(v).some((x) => !isFinite(x))) return;
     if (v.b < v.ub + 1) { v.b = v.ub + 1; $('b').value = v.b; }   // bust must exceed underbust
-    for (const [n, r] of pairs) $(r).value = $(n).value;
+    for (const [n, r] of pairs) { $(r).value = $(n).value; fill($(r)); }
+    const h = +height.value; fill(height);
+    $('heightOut').textContent = fmtHeight(h);
 
     const r = viewer.setBodyImperial({
-      feet: +ft.value, inches: +inch.value, weightKg: v.kg,
+      feet: Math.floor(h / 12), inches: h % 12, weightKg: v.kg,
       bustIn: v.b, underbustIn: v.ub, waistIn: v.w,
     });
     if (!r) return;   // model still loading
-    $('size').textContent = braSize(v.ub, v.b);
-    $('diff').textContent = `bust − underbust = ${(v.b - v.ub).toFixed(1)} in`;
-    $('bmi').textContent = r.bmi.toFixed(1);
-    $('bmiLabel').textContent = bmiLabel(r.bmi);
+    setAll('out-size', braSize(v.ub, v.b));
+    setAll('out-diff', 'Band = underbust + 2 in');
   }
+
+  const clampTo = (el, x) => Math.min(+el.max, Math.max(+el.min, x));
   for (const [n, r] of pairs) {
-    $(n).addEventListener('input', () => { $(r).value = $(n).value; apply(); });
-    $(r).addEventListener('input', () => { $(n).value = $(r).value; apply(); });
+    $(n).addEventListener('input', () => { $(r).value = $(n).value; schedule(); });
+    $(n).addEventListener('change', () => { $(n).value = clampTo($(n), parseFloat($(n).value) || +$(n).min); schedule(); });
+    $(r).addEventListener('input', () => { $(n).value = $(r).value; schedule(); });
   }
-  ft.addEventListener('change', apply); inch.addEventListener('change', apply);
+  height.addEventListener('input', schedule);
+
+  // − / + buttons, with press-and-hold to repeat
+  document.querySelectorAll('.stepper button').forEach((btn) => {
+    const key = btn.closest('.field').dataset.key;
+    const target = key === 'height' ? height : $(key);
+    const step = parseFloat(btn.dataset.step);
+    const bump = () => { target.value = clampTo(target, +(parseFloat(target.value) + step).toFixed(1)); schedule(); };
+    let t1, t2;
+    const stop = () => { clearTimeout(t1); clearInterval(t2); };
+    btn.addEventListener('pointerdown', (e) => { e.preventDefault(); bump(); t1 = setTimeout(() => { t2 = setInterval(bump, 80); }, 400); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => btn.addEventListener(ev, stop));
+    btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(); } });
+  });
+
   // Preview switch: which model to show
   const modelSwitch = $('modelSwitch'), loading = $('loading');
   const press = (group, el) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === el));
@@ -155,6 +249,10 @@
     press(viewSwitch, b); viewer.setView(b.dataset.view);
   }));
 
+  // The stage changes size on phones (address bar, rotation): keep the canvas matched.
+  new ResizeObserver(() => viewer.resize()).observe($('viewer'));
+
+  apply();
   viewer.ready.then(() => { loading.hidden = true; apply(); });
 </script>
 </body>
